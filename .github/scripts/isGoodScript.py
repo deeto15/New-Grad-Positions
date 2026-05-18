@@ -11,11 +11,11 @@ README_PATH = "README.md"
 # The job listing will be appended to the end.
 PROMPT_TEMPLATE = """
 You are evaluating a job listing for a new grad software engineer.
-Return only "GOOD" if it meets the criteria, or "BAD" if it does not.
+Return only "GOOD" if it meets the criteria, or "BAD" if it does not. Be more generous than not.
  
 Criteria:
-- [TODO: fill in your criteria here, e.g. "must be in the US", "no defense contractors", etc.]
- 
+- Must be more prestigious than Progressive Insurance Cloud Engineer. I am looking for a job that is a career booster.
+- Does not necessarily have to FAANG companies although those are fine, I am looking for interesting roles working on interesting tech, at companies I can realistically expect to at least get an interview. A good examples is Anduril. 
 Job listing:
 {listing}
 """.strip()
