@@ -1,0 +1,111 @@
+import subprocess
+import re
+import os
+from openai import OpenAI
+ 
+# ── Config ────────────────────────────────────────────────────────────────────
+ 
+README_PATH = "README.md"
+ 
+# Replace this with your actual prompt later.
+# The job listing will be appended to the end.
+PROMPT_TEMPLATE = """
+You are evaluating a job listing for a new grad software engineer.
+Return only "GOOD" if it meets the criteria, or "BAD" if it does not.
+ 
+Criteria:
+- [TODO: fill in your criteria here, e.g. "must be in the US", "no defense contractors", etc.]
+ 
+Job listing:
+{listing}
+""".strip()
+ 
+# ── Helpers ───────────────────────────────────────────────────────────────────
+ 
+def get_new_lines_since_last_commit() -> list[str]:
+    """Returns lines added in the most recent commit to README.md."""
+    result = subprocess.run(
+        ["git", "diff", "HEAD~1", "HEAD", "--", README_PATH],
+        capture_output=True, text=True
+    )
+    added_lines = []
+    for line in result.stdout.splitlines():
+        if line.startswith("+") and not line.startswith("+++"):
+            added_lines.append(line[1:].strip())  # strip the leading +
+    return added_lines
+ 
+ 
+def parse_job_listings(lines: list[str]) -> list[str]:
+    """
+    Extracts job listing rows from markdown table lines.
+    The README uses a markdown table — each row looks like:
+    | Company | Role | Location | ... |
+    """
+    listings = []
+    for line in lines:
+        # Only grab table rows (start and end with |) that aren't header/divider rows
+        if line.startswith("|") and line.endswith("|"):
+            if re.search(r"[-]{3,}", line):  # skip divider rows like |---|---|
+                continue
+            # Clean up the markdown: remove links, extra whitespace
+            clean = re.sub(r'\[([^\]]+)\]\([^\)]+\)', r'\1', line)  # [text](url) -> text
+            clean = re.sub(r'\s*\|\s*', ' | ', clean).strip('| ')
+            if clean:
+                listings.append(clean)
+    return listings
+ 
+ 
+def evaluate_listing(client: OpenAI, listing: str) -> bool:
+    """Sends a listing to OpenAI and returns True if it passes."""
+    prompt = PROMPT_TEMPLATE.format(listing=listing)
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",  # cheap and fast for this use case
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=10,
+        temperature=0,
+    )
+    verdict = response.choices[0].message.content.strip().upper()
+    return verdict == "GOOD"
+ 
+ 
+# ── Main ──────────────────────────────────────────────────────────────────────
+ 
+def main():
+    client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+ 
+    print("Checking for new job listings...")
+    new_lines = get_new_lines_since_last_commit()
+ 
+    if not new_lines:
+        print("No new lines found in README. Nothing to process.")
+        return
+ 
+    listings = parse_job_listings(new_lines)
+ 
+    if not listings:
+        print("No new job listing rows detected.")
+        return
+ 
+    print(f"Found {len(listings)} new listing(s). Evaluating...")
+ 
+    passing = []
+    for listing in listings:
+        result = evaluate_listing(client, listing)
+        status = "✅ GOOD" if result else "❌ BAD"
+        print(f"{status}: {listing}")
+        if result:
+            passing.append(listing)
+ 
+    print(f"\n── Summary ──────────────────────")
+    print(f"{len(passing)}/{len(listings)} listings passed.")
+ 
+    if passing:
+        print("\nPassing listings:")
+        for job in passing:
+            print(f"  • {job}")
+    else:
+        print("No listings passed the filter.")
+ 
+ 
+if __name__ == "__main__":
+    main()
