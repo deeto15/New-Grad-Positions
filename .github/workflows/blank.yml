@@ -5,30 +5,43 @@ on:
     - cron: '0 * * * *'  # runs every hour
   workflow_dispatch:       # allows manual trigger from GitHub UI
 
-  
 jobs:
-  sync:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repo
-        uses: actions/checkout@v4
-
-      - name: Sync with upstream
-        run: |
-          git remote add upstream https://github.com/SimplifyJobs/New-Grad-Positions.git
-          git fetch upstream
-          git merge upstream/main --no-edit
-
   monitor:
     runs-on: ubuntu-latest
     permissions:
-      contents: write  # add this
+      contents: write
 
     steps:
       - name: Checkout repo
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2  # need current + previous commit to diff
+          fetch-depth: 0        # full history so we can diff properly
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Sync with upstream
+        id: sync
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          git remote add upstream https://github.com/SimplifyJobs/New-Grad-Positions.git
+          git fetch upstream
+
+          # Save the commit hash BEFORE merging so we can diff against it later
+          echo "before=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+          # Merge upstream changes
+          git merge upstream/main --no-edit
+
+          # Check if anything actually changed
+          if git diff --quiet HEAD @{1} 2>/dev/null || [ "$(git rev-parse HEAD)" = "$(git rev-parse @{u} 2>/dev/null || echo '')" ]; then
+            echo "changed=false" >> $GITHUB_OUTPUT
+          else
+            echo "changed=true" >> $GITHUB_OUTPUT
+          fi
+
+          # Push merged changes back to your fork
+          git push origin HEAD
 
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -41,5 +54,5 @@ jobs:
       - name: Run job monitor
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          SINCE_COMMIT: ${{ steps.sync.outputs.before }}
         run: python scripts/monitor_jobs.py
- 
