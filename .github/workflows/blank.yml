@@ -27,18 +27,14 @@ jobs:
           git remote add upstream https://github.com/SimplifyJobs/New-Grad-Positions.git
           git fetch upstream
 
+          # Pull latest from your own fork first
+          git pull origin dev
+
           # Save the commit hash BEFORE merging so we can diff against it later
           echo "before=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
           # Merge upstream changes
           git merge upstream/main --no-edit
-
-          # Check if anything actually changed
-          if git diff --quiet HEAD @{1} 2>/dev/null || [ "$(git rev-parse HEAD)" = "$(git rev-parse @{u} 2>/dev/null || echo '')" ]; then
-            echo "changed=false" >> $GITHUB_OUTPUT
-          else
-            echo "changed=true" >> $GITHUB_OUTPUT
-          fi
 
           # Push merged changes back to your fork
           git push origin HEAD:dev --force
