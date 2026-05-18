@@ -51,4 +51,4 @@ jobs:
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SINCE_COMMIT: ${{ steps.sync.outputs.before }}
-        run: python scripts/isGoodScript.py
+        run: python .github/scripts/isGoodScript.py
