@@ -34,7 +34,7 @@ jobs:
           echo "before=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
           # Merge upstream changes
-          git merge upstream/main --no-edit
+          git merge upstream/dev --no-edit
 
           # Push merged changes back to your fork
           git push origin HEAD:dev --force
