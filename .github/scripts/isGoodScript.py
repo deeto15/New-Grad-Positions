@@ -67,7 +67,7 @@ def main():
     client = OpenAI(api_key=os.environ["OPENAI_API_KEY"])
 
     # Use the commit hash saved before syncing upstream
-    since_commit = os.environ.get("SINCE_COMMIT", "HEAD~20")
+    since_commit = os.environ.get("SINCE_COMMIT", "HEAD~1")
     print(f"Diffing README against commit: {since_commit}")
 
     new_lines = get_new_lines_since_commit(since_commit)

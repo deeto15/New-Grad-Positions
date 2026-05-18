@@ -2,8 +2,10 @@ name: Job Monitor
 
 on:
   schedule:
-    - cron: '0 * * * *'  # runs every hour
-  workflow_dispatch:       # allows manual trigger from GitHub UI
+    - cron: '*/10 * * * *'  # runs every 10 minutes (was hourly)
+  workflow_dispatch:          # allows manual trigger from GitHub UI
+  repository_dispatch:        # allows external trigger via GitHub API
+    types: [upstream_pr_merged]
 
 jobs:
   monitor:
@@ -31,23 +33,33 @@ jobs:
           git pull origin dev
 
           # Save the commit hash BEFORE merging so we can diff against it later
-          echo "before=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+          BEFORE=$(git rev-parse HEAD)
+          echo "before=$BEFORE" >> $GITHUB_OUTPUT
 
           # Merge upstream changes
           git merge upstream/dev --no-edit
 
-          # Push merged changes back to your fork
-          git push origin HEAD:dev --force
+          # Only push if something actually changed
+          if [ "$(git rev-parse HEAD)" != "$BEFORE" ]; then
+            git push origin HEAD:dev --force
+            echo "changed=true" >> $GITHUB_OUTPUT
+          else
+            echo "changed=false" >> $GITHUB_OUTPUT
+            echo "No new upstream changes detected."
+          fi
 
       - name: Set up Python
+        if: steps.sync.outputs.changed == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
       - name: Install dependencies
+        if: steps.sync.outputs.changed == 'true'
         run: pip install openai
 
       - name: Run job monitor
+        if: steps.sync.outputs.changed == 'true'
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           SINCE_COMMIT: ${{ steps.sync.outputs.before }}
