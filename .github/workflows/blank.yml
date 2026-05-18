@@ -41,7 +41,7 @@ jobs:
           fi
 
           # Push merged changes back to your fork
-          git push origin HEAD
+          git push origin HEAD:dev --force
 
       - name: Set up Python
         uses: actions/setup-python@v5
